@@ -1,88 +1,78 @@
 """
-Lark grammar for parsing Klipper configuration files.
+Parsimonious grammar for parsing Klipper configuration files.
 """
 
-from lark import Lark, v_args, Transformer
+from parsimonious.grammar import Grammar
+from parsimonious.nodes import NodeVisitor
 from typing import List, Tuple, Dict
 
-# Klipper config grammar in Lark format
-#  EPCOS 100K B57560G104F
-# Test grammar changes here: https://www.lark-parser.org/ide/
-KLIPPER_GRAMMAR = r"""
-    start: config
-    config: section*
-    section: section_header config_lines
-    section_header: "[" NAME "]"
-    config_lines: config_line*
-    config_line: NAME ":" value
-    value: word+
-    word: /[a-zA-Z0-9][a-zA-Z0-9_.\-\/]*/
-    inline_comment: /#[^\n]*/
-    COMMENT: /#[^\n]*/
-    NEWLINE: /\r?\n/
+# Klipper config grammar in Parsimonious format
+grammar = Grammar(
+    r"""
+    config      = (entry / emptyline)*
+    entry       = section pair*
 
-    %import common.ESCAPED_STRING
-    %import common.SIGNED_NUMBER
-    %import common.WS
-    %import common.CNAME -> NAME
+    section     = lpar word word? rpar ws? crlf
+    pair        = key equal value? ws? crlf
 
-    %ignore WS
-    %ignore COMMENT
-"""
+    key         = word+
+    value       = (word / quoted)+
+    word        = ~r"[-\w]+"
+    quoted      = ~'"[^\"]+"'
+    equal       = ws? ":" ws?
+    lpar        = "["
+    rpar        = "]"
+    ws          = ~r"[ \t\f\v]*"
+    crlf        = ~r"\r?\n"
+    emptyline   = ws+
+    """
+)
 
-@v_args(inline=True)
-class ConfigTreeToJson(Transformer):
+class IniVisitor(NodeVisitor):
     def __init__(self):
-        super().__init__()
-        self.current_section = None
+        self.current_line = 1
 
-    def start(self, config):
-        return config
+    def visit_crlf(self, node, visited_children):
+        self.current_line += 1
+        return node
 
-    def config(self, *sections):
-        return [s for s in sections if s is not None]
+    def visit_config(self, node, visited_children):
+        """ Returns the overall output. """
+        output = []
+        for child in visited_children:
+            output.append(child[0])
+        return output
 
-    def section(self, header, content):
-        return (self.current_section, content)
+    def visit_entry(self, node, visited_children):
+        """ Makes a dict of the section (as key) and the key/value pairs. """
+        key, values = visited_children
+        return [{key: dict(values)}]
 
-    def section_header(self, name):
-        self.current_section = str(name)
-        return None
+    def visit_section(self, node, visited_children):
+        """ Gets the section name. """
+        _, section, *_ = visited_children
+        return {"line_number": self.line_number, "section_name": section.text}
 
-    def config_lines(self, *items):
-        settings = {}
-        for item in items:
-            if isinstance(item, tuple):
-                key, value = item
-                settings[str(key)] = str(value)
-        return settings
+    def visit_pair(self, node, visited_children):
+        """ Gets each key/value pair, returns a tuple. """
+        key, _, value, *_ = node.children
+        return {"line_number": self.line_number, "key": key.text, "value": value.text}
 
-    def config_line(self, name, value):
-        return (str(name), str(value))
+    def generic_visit(self, node, visited_children):
+        """ The generic visit method. """
+        # node.line_number = self.current_line
+        return visited_children or node
 
-    def value(self, *words):
-        return ' '.join(str(w) for w in words if w is not None)
-
-    def word(self, w):
-        return str(w)
-
-    def NEWLINE(self, _):
-        return None
-
-# Create the parser
-parser = Lark(KLIPPER_GRAMMAR, start='start', parser='lalr', propagate_positions=True)
 
 def parse_config(config_text: str):
-    """Parse a Klipper configuration file using the Lark grammar."""
+    """Parse a Klipper configuration file using the Parsimonious grammar."""
     if not config_text.strip():
         return None
-    # Parse and transform to intermediate structure
-    tree = parser.parse(config_text)
+    tree = grammar.parse(config_text)
     return tree
-
 
 def transform_config_tree(tree) -> List[Tuple[str, Dict[str, str]]]:
     """Transform a Klipper configuration tree into a list of section tuples."""
-    transformer = ConfigTreeToJson()
-    sections = transformer.transform(tree)
+    visitor = IniVisitor()
+    sections = visitor.visit(tree)
     return sections
