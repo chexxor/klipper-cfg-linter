@@ -1,0 +1,24 @@
+name: value-ranges
+category: safety
+description: "Checks that numeric values are within acceptable ranges"
+examples:
+  valid:
+    - "max_velocity: 300"
+    - "max_accel: 3000"
+  invalid:
+    - "max_velocity: 2000"
+    - "max_accel: -100"
+
+conditions:
+  - type: "numeric_range"
+    applies_to: "option"
+    options:
+      - "max_velocity"
+      - "max_accel"
+      - "microsteps"
+    ranges:
+      max_velocity: [0, 1000]
+      max_accel: [0, 10000]
+      microsteps: [1, 256]
+    error_message: "{option} value {value} outside valid range [{min}, {max}]"
+    severity: "error"

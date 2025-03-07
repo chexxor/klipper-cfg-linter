@@ -1,0 +1,15 @@
+name: naming-conventions
+category: style
+description: "Check that section names follow naming conventions"
+examples:
+  valid:
+    - "[stepper_x]"
+    - "[extruder]"
+  invalid:
+    - "[Stepper_X]"
+    - "[EXTRUDER]"
+conditions:
+  - type: "section_name_pattern"
+    pattern: "^[a-z][a-z0-9_]*$"
+    error_message: "Section name should be lowercase: {section}"
+    severity: "warning"

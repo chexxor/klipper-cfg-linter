@@ -1,0 +1,23 @@
+name: stepper-consistency
+category: consistency
+description: "Check that stepper configurations are consistent"
+examples:
+  valid:
+    - |
+      [stepper_x]
+      microsteps: 16
+      [stepper_y]
+      microsteps: 16
+  invalid:
+    - |
+      [stepper_x]
+      microsteps: 16
+      [stepper_y]
+      microsteps: 32
+conditions:
+  - type: "option_consistency"
+    section_pattern: "^stepper_[xyz]$"
+    options:
+      - "microsteps"
+    error_message: "Inconsistent {option} value in {section}"
+    severity: "warning"

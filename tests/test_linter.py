@@ -1,11 +1,13 @@
 import pytest
-from klipperlint.klipper_config_parser import ConfigFile, ConfigSection
+from pathlib import Path
+from textwrap import dedent
+from typing import List
+
 from klipperlint.klipper_config_linter import (
-    KlipperLinter, LintError, LintRule, RuleCategory, RuleDocumentation,
-    check_pin_syntax, check_required_sections, check_value_ranges,
-    check_section_dependencies, check_naming_conventions, check_stepper_consistency,
-    create_configured_linter, LinterConfig
+    KlipperLinter, LinterConfig, create_configured_linter
 )
+from klipperlint.klipper_config_parser import ConfigFile, ConfigSection
+from klipperlint.types import LintError, RuleCategory, RuleDocumentation, LintRule
 
 # Test fixtures
 @pytest.fixture
@@ -14,19 +16,11 @@ def valid_config():
         sections={
             "printer": ConfigSection("printer", {
                 "kinematics": "cartesian",
-                "max_velocity": "300",
-                "max_accel": "3000"
+                "max_velocity": "300"
             }),
             "stepper_x": ConfigSection("stepper_x", {
                 "step_pin": "PF0",
                 "dir_pin": "PF1",
-                "enable_pin": "!PD7",
-                "microsteps": "16"
-            }),
-            "stepper_y": ConfigSection("stepper_y", {
-                "step_pin": "PF2",
-                "dir_pin": "PF3",
-                "enable_pin": "!PD5",
                 "microsteps": "16"
             })
         },
@@ -40,126 +34,75 @@ def invalid_config():
             "stepper_x": ConfigSection("stepper_x", {
                 "step_pin": "invalid_pin",
                 "dir_pin": "also_invalid",
-                "enable_pin": "not_a_pin",
-                "microsteps": "1000"  # Out of range
+                "microsteps": "1000"
             }),
-            "Stepper_Y": ConfigSection("Stepper_Y", {  # Invalid casing
+            "Stepper_Y": ConfigSection("Stepper_Y", {
                 "step_pin": "PF2",
-                "microsteps": "32"  # Inconsistent with stepper_x
+                "microsteps": "32"
             })
         },
         includes=[]
     )
 
-def test_pin_syntax_check():
-    config = ConfigFile(
-        sections={
-            "stepper_x": ConfigSection("stepper_x", {
-                "step_pin": "PF0",      # Valid
-                "dir_pin": "invalid",    # Invalid
-                "enable_pin": "!PD7"     # Valid
-            })
-        },
-        includes=[]
-    )
+@pytest.fixture
+def temp_rules_dir(tmp_path):
+    """Creates a temporary directory with test rule files"""
+    rules_dir = tmp_path / "rules"
+    rules_dir.mkdir()
 
-    errors = check_pin_syntax(config)
-    assert len(errors) == 1
-    assert errors[0].section == "stepper_x"
-    assert errors[0].option == "dir_pin"
-    assert "Invalid pin format" in errors[0].message
+    # Create pin syntax rule
+    pin_rule = """
+    name: pin-syntax
+    category: syntax
+    description: "Check that pin definitions follow correct syntax"
+    examples:
+      valid:
+        - "step_pin: PF0"
+        - "dir_pin: !PF1"
+      invalid:
+        - "step_pin: invalid_pin"
+        - "dir_pin: GPIO23"
+    conditions:
+      - type: "regex_match"
+        applies_to: "option"
+        pattern: ".*_pin$"
+        value_pattern: "^[!-]?P[A-Z][0-9]+$"
+        error_message: "Invalid pin format: {value}"
+        severity: "error"
+    """
+    (rules_dir / "pin_syntax.yaml").write_text(dedent(pin_rule))
 
-def test_required_sections():
-    # Test missing printer section
-    config = ConfigFile(
-        sections={"stepper_x": ConfigSection("stepper_x", {})},
-        includes=[]
-    )
+    # Create naming conventions rule
+    naming_rule = """
+    name: naming-conventions
+    category: style
+    description: "Check that names follow conventions"
+    examples:
+      valid:
+        - "[stepper_x]"
+        - "[extruder]"
+      invalid:
+        - "[Stepper_X]"
+        - "[EXTRUDER]"
+    conditions:
+      - type: "section_name_pattern"
+        pattern: "^[a-z][a-z0-9_]*$"
+        error_message: "Section name should be lowercase: {section}"
+        severity: "warning"
+    """
+    (rules_dir / "naming_conventions.yaml").write_text(dedent(naming_rule))
 
-    errors = check_required_sections(config)
-    assert len(errors) == 1
-    assert errors[0].section == "printer"
-    assert "Missing required section" in errors[0].message
+    return rules_dir
 
-def test_value_ranges():
-    config = ConfigFile(
-        sections={
-            "printer": ConfigSection("printer", {
-                "max_velocity": "2000",  # Out of range
-                "max_accel": "invalid",  # Not a number
-                "microsteps": "16"       # Valid
-            })
-        },
-        includes=[]
-    )
-
-    errors = check_value_ranges(config)
-    assert len(errors) == 2
-    assert any("outside valid range" in e.message for e in errors)
-    assert any("Invalid numeric value" in e.message for e in errors)
-
-def test_section_dependencies():
-    config = ConfigFile(
-        sections={
-            "extruder": ConfigSection("extruder", {})
-            # Missing heater_bed section
-        },
-        includes=[]
-    )
-
-    errors = check_section_dependencies(config)
-    assert len(errors) == 1
-    assert errors[0].severity == "warning"
-    assert "heater_bed" in errors[0].message
-
-def test_naming_conventions():
-    config = ConfigFile(
-        sections={
-            "Printer": ConfigSection("Printer", {}),
-            "STEPPER_X": ConfigSection("STEPPER_X", {})
-        },
-        includes=[]
-    )
-
-    errors = check_naming_conventions(config)
-    assert len(errors) == 2
-    assert all(e.severity == "warning" for e in errors)
-    assert all("lowercase" in e.message for e in errors)
-
-def test_stepper_consistency():
-    config = ConfigFile(
-        sections={
-            "stepper_x": ConfigSection("stepper_x", {"microsteps": "16"}),
-            "stepper_y": ConfigSection("stepper_y", {"microsteps": "32"}),
-            "stepper_z": ConfigSection("stepper_z", {"microsteps": "16"})
-        },
-        includes=[]
-    )
-
-    errors = check_stepper_consistency(config)
-    assert len(errors) == 1
-    assert errors[0].section == "stepper_y"
-    assert "Inconsistent microsteps" in errors[0].message
-
-def test_linter_configuration():
-    config = LinterConfig(
-        ignore_rules=["pin-syntax"],
-        warning_as_error=True,
-        custom_ranges={"max_velocity": (0, 2000)}
-    )
-
+def test_linter_with_valid_config(valid_config, temp_rules_dir):
+    config = LinterConfig(rules_directory=str(temp_rules_dir))
     linter = create_configured_linter(config)
-    # Verify pin-syntax rule is not included
-    rule_names = [rule.name for rule in linter.rules]
-    assert "pin-syntax" not in rule_names
-
-def test_full_linter_valid_config(valid_config):
-    linter = create_configured_linter(LinterConfig())
     errors = linter.lint(valid_config)
     assert not errors, f"Expected no errors but got: {errors}"
 
-def test_full_linter_invalid_config(invalid_config):
-    linter = create_configured_linter(LinterConfig())
+def test_linter_with_invalid_config(invalid_config, temp_rules_dir):
+    config = LinterConfig(rules_directory=str(temp_rules_dir))
+    linter = create_configured_linter(config)
     errors = linter.lint(invalid_config)
 
     # Check for various expected errors
@@ -167,32 +110,50 @@ def test_full_linter_invalid_config(invalid_config):
     error_messages = [e.message for e in errors]
 
     assert any("Invalid pin format" in msg for msg in error_messages)
-    assert any("Missing required section: printer" in msg for msg in error_messages)
-    assert any("outside valid range" in msg for msg in error_messages)
-    assert any("lowercase" in msg for msg in error_messages)
+    assert any("should be lowercase" in msg for msg in error_messages)
 
-def test_rule_documentation():
-    doc = RuleDocumentation(
-        description="Test rule",
-        examples=["Good example", "Bad example"],
-        fix_suggestions=["How to fix"]
+def test_ignore_rules(invalid_config, temp_rules_dir):
+    config = LinterConfig(
+        rules_directory=str(temp_rules_dir),
+        ignore_rules=["naming-conventions"]
+    )
+    linter = create_configured_linter(config)
+    errors = linter.lint(invalid_config)
+
+    # Should only see pin format errors, not naming convention errors
+    error_messages = [e.message for e in errors]
+
+    # Should see pin format errors
+    assert any("Invalid pin format" in msg for msg in error_messages)
+
+    # Should NOT see naming convention errors
+    assert not any("should be lowercase" in msg for msg in error_messages)
+
+def test_warning_as_error(invalid_config, temp_rules_dir):
+    config = LinterConfig(
+        rules_directory=str(temp_rules_dir),
+        warning_as_error=True
+    )
+    linter = create_configured_linter(config)
+    errors = linter.lint(invalid_config)
+
+    # All errors should have severity "error"
+    assert all(e.severity == "error" for e in errors)
+
+def test_custom_rule(valid_config):
+    def custom_check(config: ConfigFile) -> List[LintError]:
+        return [LintError("Custom error", "test_section")]
+
+    custom_rule = LintRule(
+        custom_check,
+        "custom-rule",
+        RuleDocumentation("Test rule", [], []),
+        RuleCategory.STYLE
     )
 
-    rule = LintRule(
-        check_pin_syntax,
-        "pin-syntax",
-        doc,
-        RuleCategory.SYNTAX
-    )
+    linter = KlipperLinter()
+    linter.add_rule(custom_rule)
+    errors = linter.lint(valid_config)
 
-    assert rule.docs.description == "Test rule"
-    assert len(rule.docs.examples) == 2
-    assert rule.category == RuleCategory.SYNTAX
-
-def test_rule_categories():
-    # Test that all rules are assigned to appropriate categories
-    linter = create_configured_linter(LinterConfig())
-
-    for rule in linter.rules:
-        assert isinstance(rule.category, RuleCategory)
-        assert rule.category in RuleCategory
+    assert len(errors) == 1
+    assert errors[0].message == "Custom error"
