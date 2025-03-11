@@ -45,3 +45,6 @@ htmlcov/
 Thumbs.db
 CACHEDIR.TAG
 pyvenv.cfg
+
+# Database
+*.db
