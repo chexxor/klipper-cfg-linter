@@ -2,7 +2,15 @@
 
 A Python-based linting tool for analyzing and validating Klipper 3D printer configuration files. This tool helps identify common configuration issues, syntax errors, and potential problems in your Klipper config files before deploying them to your printer.
 
-## Features
+> **⚠️ WARNING: Project Under Heavy Development**
+>
+> This project is currently in early development stages and is not ready for production use. You may encounter bugs, incomplete features, and breaking changes.
+>
+> **Note:** Currently, there are very few implemented linting rules, so the tool will not be helpful for validating printer configurations yet. Please check back later as we continue to develop and implement more rules.
+
+## Planned Features
+
+The following features are planned but may not be fully implemented yet:
 
 - Syntax validation for Klipper config files
 - Detection of common configuration mistakes
@@ -12,6 +20,8 @@ A Python-based linting tool for analyzing and validating Klipper 3D printer conf
 - Best practices recommendations
 
 ## Installation
+
+To do: Confirm these steps.
 
 1. Clone this repository:
 ```bash
@@ -32,6 +42,8 @@ pip install -r requirements.txt
 
 ## Usage
 
+To do: Confirm these.
+
 Basic usage:
 ```bash
 python -m klipperlint your_printer.cfg
@@ -42,29 +54,14 @@ Advanced options:
 python -m klipperlint --verbose --strict your_printer.cfg
 ```
 
-## Configuration
+## Development Status
 
-The linter can be configured using a `.klipperlint.yaml` file in your home directory or the current working directory. Example configuration:
+The project is currently focusing on:
+1. Building a robust parser for Klipper configuration files
+2. Implementing core linting rules
+3. Gathering community feedback on most needed validations
 
-```yaml
-ignore:
-  - deprecated_setting_warning
-  - pin_already_used
-strict: false
-verbose: true
-```
-
-## Rules
-
-The linter checks for various issues including:
-
-- Invalid section names
-- Duplicate sections
-- Missing required parameters
-- Invalid pin assignments
-- Conflicting settings
-- Hardware compatibility issues
-- Deprecated configuration options
+We welcome contributions but please note that the codebase is rapidly changing.
 
 ## Contributing
 
