@@ -29,21 +29,6 @@ class Database:
                 )
             """)
 
-            # Create initial config_snippets table
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS config_snippets (
-                    id TEXT PRIMARY KEY,
-                    issue_id TEXT,
-                    content TEXT,
-                    problem_description TEXT,
-                    source_type TEXT,
-                    attachment_url TEXT,
-                    attachment_content TEXT,
-                    fetch_date TIMESTAMP,
-                    FOREIGN KEY(issue_id) REFERENCES klipper_issues(id)
-                )
-            """)
-
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS collection_log (
                     source TEXT,
@@ -78,33 +63,6 @@ class Database:
                     retries INTEGER DEFAULT 0,
                     error TEXT,
                     metadata JSON
-                )
-            """)
-
-            # Add processed data tables
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS processed_configs (
-                    id TEXT PRIMARY KEY,
-                    raw_config_id TEXT,
-                    processed_content TEXT,
-                    analysis_results JSON,
-                    detected_patterns JSON,
-                    validation_results JSON,
-                    processing_date TIMESTAMP,
-                    FOREIGN KEY(raw_config_id) REFERENCES config_snippets(id)
-                )
-            """)
-
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS config_patterns (
-                    id TEXT PRIMARY KEY,
-                    pattern_type TEXT,  -- 'error', 'warning', 'best_practice'
-                    frequency INTEGER,
-                    impact_score FLOAT,
-                    description TEXT,
-                    examples JSON,
-                    first_seen TIMESTAMP,
-                    last_seen TIMESTAMP
                 )
             """)
 
@@ -183,20 +141,13 @@ class Database:
         existing_columns = {}
 
         # Get current columns for each table
-        tables = ['config_snippets', 'klipper_issues', 'issue_comments']
+        tables = ['klipper_issues', 'issue_comments']
         for table in tables:
             cursor = conn.execute(f"PRAGMA table_info({table})")
             existing_columns[table] = {row[1] for row in cursor.fetchall()}
 
         # Define new columns for each table
         migrations = {
-            'config_snippets': {
-                "problem_description": "TEXT",
-                "source_type": "TEXT",
-                "attachment_url": "TEXT",
-                "attachment_content": "TEXT",
-                "fetch_date": "TIMESTAMP"
-            },
             'klipper_issues': {
                 "raw_response": "JSON"
             },
@@ -235,17 +186,6 @@ class Database:
         # Otherwise it should be a numeric issue ID
         return bool(re.match(r'^\d+$', id_value))
 
-    def _is_valid_snippet_id(self, id_value: str) -> bool:
-        """Validate snippet ID format (issue_id-index)"""
-        pattern = r'^\d+-\d+$'
-        return bool(re.match(pattern, id_value))
-
-    def _extract_issue_id_from_snippet(self, snippet_id: str) -> str:
-        """Extract the issue ID from a snippet ID"""
-        if not self._is_valid_snippet_id(snippet_id):
-            raise ValueError(f"Invalid snippet ID format: {snippet_id}")
-        return snippet_id.split('-')[0]
-
     def store_issue(self, source: str, issue_id: str, content: str, created_at: datetime, metadata: dict, raw_response: dict):
         """Store an issue with its raw response data"""
         if not self._is_valid_issue_id(issue_id):
@@ -262,38 +202,6 @@ class Database:
                 (issue_id, source, created_at, content,
                  json.dumps(metadata), json.dumps(raw_response))
             )
-
-    def store_config_snippet(self, snippet_id: str, issue_id: str, content: str,
-                            problem_description: str, source_type: str = "inline",
-                            attachment_url: Optional[str] = None,
-                            attachment_content: Optional[str] = None):
-        """Store a config snippet with validation"""
-        if not self._is_valid_snippet_id(snippet_id):
-            raise ValueError(f"Invalid snippet ID format: {snippet_id}")
-        if not self._is_valid_issue_id(issue_id):
-            raise ValueError(f"Invalid issue ID format: {issue_id}")
-
-        # Verify the snippet's issue ID matches the provided issue ID
-        snippet_issue_id = self._extract_issue_id_from_snippet(snippet_id)
-        if snippet_issue_id != issue_id:
-            raise ValueError(f"Snippet ID {snippet_id} does not match issue ID {issue_id}")
-
-        try:
-            with sqlite3.connect(self.db_path) as conn:
-                conn.execute(
-                    """
-                    INSERT OR REPLACE INTO config_snippets
-                    (id, issue_id, content, problem_description, source_type, attachment_url,
-                     attachment_content, fetch_date)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (snippet_id, issue_id, content, problem_description, source_type,
-                     attachment_url, attachment_content,
-                     datetime.utcnow() if attachment_content else None)
-                )
-        except sqlite3.Error as e:
-            logger.error(f"Error storing config snippet: {e}", exc_info=True)
-            logger.debug(f"Data: {snippet_id}, {issue_id}, {content}, {problem_description}, {source_type}, {attachment_url}, {attachment_content}")
 
     def update_collection_log(self, source: str, items_collected: int, status: str = "success", metadata: dict = None):
         """Update collection log with optional metadata"""
@@ -429,18 +337,6 @@ class Database:
                 SELECT * FROM issue_comments
                 WHERE issue_id = ?
                 ORDER BY created_at DESC
-                LIMIT ?
-            """, (issue_id, limit))
-            return [dict(row) for row in cursor.fetchall()]
-
-    def get_config_snippets(self, issue_id: str, limit: int = 100) -> List[Dict[str, Any]]:
-        """Fetch config snippets for a specific issue."""
-        with sqlite3.connect(self.db_path) as conn:
-            conn.row_factory = sqlite3.Row
-            cursor = conn.execute("""
-                SELECT * FROM config_snippets
-                WHERE issue_id = ?
-                ORDER BY fetch_date DESC
                 LIMIT ?
             """, (issue_id, limit))
             return [dict(row) for row in cursor.fetchall()]

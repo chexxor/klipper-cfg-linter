@@ -5,9 +5,6 @@ import logging
 import json
 import time
 import re
-import hashlib
-import os
-import pickle
 from ..clients.anthropic_client import CachedAnthropicClient
 
 logger = logging.getLogger(__name__)
@@ -461,7 +458,7 @@ Focus on identifying patterns that could be detected through static analysis of 
             # Fetch the raw content, comments, and attachments from the database
             raw_content = self.db.get_issues(item_id)
             comments = self.db.get_comments(item_id)
-            attachments = self.db.get_config_snippets(item_id)
+            attachments = self.db.get_issue_attachments(item_id)
 
             if not raw_content:
                 logger.error(f"No content found for item {item_id} during improved analysis attempt")

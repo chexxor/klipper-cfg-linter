@@ -79,8 +79,6 @@ Create a comprehensive dataset of Klipper configuration issues, patterns, and be
   - Problem description
   - Solution
   - Impact/frequency metrics
-- [x] Set up backup system (WAL mode)
-- [x] Handle data versioning
 - [x] Separate raw data storage from processed data
 - [x] Add processing status tracking
 - [x] Implement multi-phase processing pipeline:
@@ -94,7 +92,6 @@ Create a comprehensive dataset of Klipper configuration issues, patterns, and be
   - Configuration pattern detection
   - Error message extraction
   - Solution categorization
-- [ ] Create visualization tools
 - [x] Generate statistics:
   - Most common issues
   - Most impactful problems

@@ -123,7 +123,7 @@ def extract_config(self, content: str) -> List[str]:
 ```
 
 ## Data Storage
-- SQLite database with WAL mode
+- SQLite database
 - Separate tables for:
   - Raw issues/comments
   - Attachments

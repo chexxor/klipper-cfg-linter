@@ -5,9 +5,8 @@ import logging
 import re
 from dataclasses import dataclass
 from klipperlint.mining.storage.database import Database
-import json
 from requests_cache import CachedSession
-from urllib.parse import urlparse, urlencode, unquote_plus
+from urllib.parse import urlparse, unquote_plus
 from pathlib import Path
 import hashlib
 import time
