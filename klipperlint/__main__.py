@@ -7,7 +7,7 @@ import click
 from pathlib import Path
 from typing import Optional
 
-from .linter import KlipperLinter
+from .klipper_config_linter import KlipperLinter
 from .config import LinterConfig
 
 @click.command()
@@ -24,7 +24,7 @@ def main(config_file: Path, verbose: bool, strict: bool, config: Optional[Path])
         linter_config.strict = strict
 
         linter = KlipperLinter(linter_config)
-        issues = linter.lint_file(config_file)
+        issues = linter.lint(config_file)
 
         if issues:
             for issue in issues:
