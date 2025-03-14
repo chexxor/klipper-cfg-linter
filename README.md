@@ -40,6 +40,11 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
+4. Install the script:
+```bash
+pip install -e .
+```
+
 ## Usage
 
 To do: Confirm these.
