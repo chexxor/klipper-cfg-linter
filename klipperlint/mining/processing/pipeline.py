@@ -288,6 +288,15 @@ class ProcessingPipeline:
                         {"role": "user", "content": prompt}
                     ]
 
+                    # Check the token count
+                    token_count = len(prompt.split())  # Simple token count based on whitespace
+                    max_tokens = 200000  # Maximum allowed tokens
+
+                    if token_count > max_tokens:
+                        logger.warning(f"Prompt is too long: {token_count} tokens > {max_tokens} maximum. Truncating...")
+                        # Truncate the prompt to the maximum allowed length
+                        prompt = ' '.join(prompt.split()[:max_tokens])  # Keep only the first max_tokens words
+
                     # Make the API request using the Anthropic client
                     message = self.anthropic_client.messages.create(
                         model="claude-3-5-haiku-20241022",

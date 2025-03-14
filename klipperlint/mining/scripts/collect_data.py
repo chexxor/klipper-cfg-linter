@@ -8,12 +8,15 @@ import json
 import sys
 
 from klipperlint.mining.collectors.github_collector import GitHubCollector
+from klipperlint.mining.collectors.discourse_collector import DiscourseCollector
 from klipperlint.mining.storage.database import Database
 from klipperlint.mining.processing.pipeline import ProcessingPipeline
 
 # Usage:
 # # Set GitHub token
 # export GITHUB_TOKEN=your_token_here
+# # Set Discourse cookie (copy from browser dev tools - make sure to get _t cookie)
+# export DISCOURSE_COOKIE='_t=your_cookie_value_here'
 # # Set Anthropic API key
 # export ANTHROPIC_API_KEY=your_key_here
 # # Collect last 24 hours of data
@@ -82,6 +85,38 @@ def collect_github_data(db: Database, pipeline: ProcessingPipeline, token: str, 
         )
         raise
 
+def collect_discourse_data(db: Database, pipeline: ProcessingPipeline, cookie_string: str, since: datetime = None):
+    """Collect and process Discourse data"""
+    collector = DiscourseCollector(cookie_string, db)
+    try:
+        # Phase 1: Collect all topics
+        logger.info(f"Phase 1: Collecting topics from Discourse since {since}")
+        topics = collector.collect_topics(since=since)
+        logger.info(f"Found {len(topics)} topics")
+
+        # Update collection log
+        db.update_collection_log(
+            source="discourse",
+            items_collected=len(topics),
+            metadata={
+                "since": since.isoformat() if since else None,
+                "topics_collected": len(topics)
+            }
+        )
+
+    except Exception as e:
+        logger.error(f"Error in collect_discourse_data: {e}", exc_info=True)
+        db.update_collection_log(
+            source="discourse",
+            items_collected=0,
+            status=f"error: {str(e)}",
+            metadata={
+                "since": since.isoformat() if since else None,
+                "error": str(e)
+            }
+        )
+        raise
+
 def collect_data(db: Database, pipeline: ProcessingPipeline, source: str, since: datetime):
     """Collect data from the specified source and process it"""
     if source == "github":
@@ -89,6 +124,15 @@ def collect_data(db: Database, pipeline: ProcessingPipeline, source: str, since:
         if not github_token:
             raise ValueError("GITHUB_TOKEN environment variable is required")
         collect_github_data(db, pipeline, github_token, since)
+    elif source == "discourse":
+        discourse_cookie = os.environ.get("DISCOURSE_COOKIE")
+        if not discourse_cookie:
+            raise ValueError(
+                "DISCOURSE_COOKIE environment variable is required. "
+                "Get this from your browser's developer tools - "
+                "look for the '_t' cookie when logged into the forum."
+            )
+        collect_discourse_data(db, pipeline, discourse_cookie, since)
 
 def retry_empty_analysis(db: Database, pipeline: ProcessingPipeline, limit: int = 100):
     """Retry processing for items with empty analysis results"""
@@ -169,7 +213,7 @@ def main():
     setup_logging()
 
     parser = argparse.ArgumentParser(description="Collect and process Klipper configuration data")
-    parser.add_argument("--source", choices=["github"], default="github",
+    parser.add_argument("--source", choices=["github", "discourse"], default="github",
                        help="Data source to collect from")
     parser.add_argument("--since", type=str,
                        help="Collect data since this date (YYYY-MM-DD)")
