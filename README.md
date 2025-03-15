@@ -26,6 +26,10 @@ We welcome contributions but note that the codebase is liable to change, so stay
 
 Contributions are welcome! Please feel free to submit a Pull Request. For major changes, please open an issue first to discuss what you would like to change.
 
+See the [CONTRIBUTING.md](CONTRIBUTING.md) document for details.
+
+Just stopping by? See something that makes this project hard to understand or use? Let us know by opening an issue! Later, ideally and if possible, you can return to try to address the issue on your own!
+
 ## License
 
 This project is licensed under the GPLv3 License, just as the Klipper project is -- see the [LICENSE](LICENSE) file for details.
