@@ -8,63 +8,17 @@ A Python-based linting tool for analyzing and validating Klipper 3D printer conf
 >
 > **Note:** Currently, there are very few implemented linting rules, so the tool will not be helpful for validating printer configurations yet. Please check back later as we continue to develop and implement more rules.
 
-## Planned Features
+## Docs
 
-The following features are planned but may not be fully implemented yet:
+See the [docs/ROADMAP.md](docs/ROADMAP.md) document to discover current state and future.
 
-- Syntax validation for Klipper config files
-- Detection of common configuration mistakes
-- Validation of pin assignments and hardware configurations
-- Check for missing required sections
-- Identification of deprecated settings
-- Best practices recommendations
-
-## Installation
-
-To do: Confirm these steps.
-
-1. Clone this repository:
-```bash
-git clone https://github.com/chexxor/klipper-cfg-linter.git
-cd klipper-cfg-linter
-```
-
-2. Create a virtual environment (recommended):
-```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-```
-
-3. Install dependencies:
-```bash
-pip install -r requirements.txt
-```
-
-4. Install the script:
-```bash
-pip install -e .
-```
-
-## Usage
-
-To do: Confirm these.
-
-Basic usage:
-```bash
-python -m klipperlint your_printer.cfg
-```
-
-Advanced options:
-```bash
-python -m klipperlint --verbose --strict your_printer.cfg
-```
+See the [docs/INSTALLATION.md](docs/INSTALLATION.md) and [docs/OVERVIEW.md](docs/OVERVIEW.md) document to get started using the project.
 
 ## Development Status
 
 The project is currently focusing on:
-1. Building a robust parser for Klipper configuration files
-2. Implementing core linting rules
-3. Gathering community feedback on most needed validations
+1. Implementing core linting rules
+2. Gathering community feedback on most needed validations
 
 We welcome contributions but please note that the codebase is rapidly changing.
 
@@ -74,7 +28,7 @@ Contributions are welcome! Please feel free to submit a Pull Request. For major 
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the GPLv3 License - see the [LICENSE](LICENSE) file for details.
 
 ## Acknowledgments
 
