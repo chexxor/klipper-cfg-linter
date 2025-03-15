@@ -42,3 +42,5 @@ This project is licensed under the GPLv3 License, just as the Klipper project is
 ## Support
 
 If you encounter any issues or have questions, please file an issue on the GitHub repository.
+
+Don't expect free fixes, as this is a volunteer project, so empathy is most important when making requests. If you really care about your issue, attempt to fix it yourself! LLMs like ChatGPT and CursorAI can help you get you started really quickly!
