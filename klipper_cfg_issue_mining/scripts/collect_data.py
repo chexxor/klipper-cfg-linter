@@ -7,10 +7,10 @@ from pathlib import Path
 import json
 import sys
 
-from klipperlint.mining.collectors.github_collector import GitHubCollector
-from klipperlint.mining.collectors.discourse_collector import DiscourseCollector
-from klipperlint.mining.storage.database import Database
-from klipperlint.mining.processing.pipeline import ProcessingPipeline
+from klipper_cfg_issue_mining.collectors.github_collector import GitHubCollector
+from klipper_cfg_issue_mining.collectors.discourse_collector import DiscourseCollector
+from klipper_cfg_issue_mining.storage.database import Database
+from klipper_cfg_issue_mining.processing.pipeline import ProcessingPipeline
 
 # Usage:
 # # Set GitHub token
@@ -26,7 +26,7 @@ from klipperlint.mining.processing.pipeline import ProcessingPipeline
 # # Specify database path
 # python3 -m scripts.collect_data --db-path /path/to/data.db
 # # Force reprocess all items
-# python3 -m klipperlint.mining.scripts.collect_data --force-reprocess
+# python3 -m klipper_cfg_issue_mining.scripts.collect_data --force-reprocess
 
 # Set up logger at the module level
 logger = logging.getLogger(__name__)

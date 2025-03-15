@@ -19,8 +19,9 @@ See the [docs/INSTALLATION.md](docs/INSTALLATION.md) and [docs/OVERVIEW.md](docs
 The project is currently focusing on:
 1. Implementing core linting rules
 2. Gathering community feedback on most needed validations
+3. Data mining config-related issues from GitHub, Disourse, Discord to educate linting rules to create.
 
-We welcome contributions but note that the codebase is liable to change, so stay in communication if working on a long-lived branch.
+We welcome contributions, but note that the codebase is liable to change, so stay in communication if working on a long-lived branch.
 
 ## Contributing
 

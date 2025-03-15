@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 import logging
 import re
 from dataclasses import dataclass
-from klipperlint.mining.storage.database import Database
+from klipper_cfg_issue_mining.storage.database import Database
 from requests_cache import CachedSession
 from urllib.parse import urlparse, unquote_plus
 from pathlib import Path

@@ -82,4 +82,14 @@ python -m klipperlint --strict your_printer.cfg
 
 # Use custom config file
 python -m klipperlint --config my_config.yaml your_printer.cfg
+
+# Collects GitHub issues since specified date,
+#   then asks LLM if they are related to config-related errors,
+#   storing results in sqlite database. Use DB Browser for SQLite to query results.
+python -m klipper_cfg_issue_mining.scripts.collect_data --source github --since 2025-03-01 &> out.txt
+
+# Collects Discourse issues since specified date,
+#   then asks LLM if they are related to config-related errors,
+#   storing results in sqlite database. Use DB Browser for SQLite to query results.
+python -m klipper_cfg_issue_mining.scripts.collect_data --source discourse --since 2025-03-01 &> out.txt
 ```
