@@ -2,7 +2,7 @@
 
 A Python-based linting tool for analyzing and validating Klipper 3D printer configuration files. This tool helps identify common configuration issues, syntax errors, and potential problems in your Klipper config files before deploying them to your printer.
 
-> **⚠️ WARNING: Project Under Heavy Development**
+> **⚠️ WARNING: Young Project, Under Development**
 >
 > This project is currently in early development stages and is not ready for production use. You may encounter bugs, incomplete features, and breaking changes.
 >
@@ -20,7 +20,7 @@ The project is currently focusing on:
 1. Implementing core linting rules
 2. Gathering community feedback on most needed validations
 
-We welcome contributions but please note that the codebase is rapidly changing.
+We welcome contributions but note that the codebase is liable to change, so stay in communication if working on a long-lived branch.
 
 ## Contributing
 
@@ -28,7 +28,7 @@ Contributions are welcome! Please feel free to submit a Pull Request. For major 
 
 ## License
 
-This project is licensed under the GPLv3 License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the GPLv3 License, just as the Klipper project is -- see the [LICENSE](LICENSE) file for details.
 
 ## Acknowledgments
 
