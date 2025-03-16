@@ -252,24 +252,24 @@ class Database:
                  json.dumps(raw_response) if raw_response else None)
             )
 
-    def update_processing_status(self, item_id: str, source_type: str = None,
+    def update_processing_status(self, item_id: str,
                                current_phase: str = None, error: str = None,
                                metadata: dict = None):
         """Update processing status for an item"""
         with sqlite3.connect(self.db_path) as conn:
             conn.execute("""
                 INSERT OR REPLACE INTO processing_status
-                (item_id, source_type, current_phase, last_processed,
+                (item_id, current_phase, last_processed,
                  error, metadata, retries)
                 VALUES (
-                    ?, ?, ?, ?,
+                    ?, ?, ?,
                     ?, ?, COALESCE((
                         SELECT retries + 1
                         FROM processing_status
                         WHERE item_id = ?
                     ), 0)
                 )
-            """, (item_id, source_type, current_phase, datetime.utcnow(),
+            """, (item_id, current_phase, datetime.utcnow(),
                   error, json.dumps(metadata) if metadata else None, item_id))
 
     def get_processing_status(self, item_id: str) -> Optional[str]:

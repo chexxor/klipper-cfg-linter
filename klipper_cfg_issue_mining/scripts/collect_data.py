@@ -31,16 +31,17 @@ from klipper_cfg_issue_mining.processing.pipeline import ProcessingPipeline
 # Set up logger at the module level
 logger = logging.getLogger(__name__)
 
-def setup_logging():
+def setup_logging(logging_level):
     """Configure logging for the collector"""
     logging.basicConfig(
-        level=logging.INFO,
+        level=logging_level,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         handlers=[
             logging.StreamHandler(sys.stdout),
             logging.FileHandler('collection_processing.log')
         ]
     )
+    logging.info(f"Logging level set to {logging_level}")
 
 def process_collected_data(db: Database, pipeline: ProcessingPipeline, batch_size: int = 100):
     """Process newly collected data through the pipeline"""
@@ -52,7 +53,7 @@ def process_collected_data(db: Database, pipeline: ProcessingPipeline, batch_siz
             try:
                 item_id = str(item['id'])  # Ensure string type
                 logger.info(f"Processing item {item_id}")
-                pipeline.process_item(item_id, item['source_type'])
+                pipeline.process_item(item_id)
             except Exception as e:
                 logger.error(f"Failed to process item {item_id}: {e}", exc_info=True)
                 continue
@@ -149,7 +150,7 @@ def retry_empty_analysis(db: Database, pipeline: ProcessingPipeline, limit: int 
                 db.reset_processing_status(item_id)
 
                 # Reprocess the item
-                pipeline.process_item(item_id, item['source_type'])
+                pipeline.process_item(item_id)
 
                 logger.info(f"Successfully reprocessed item {item_id}")
             except Exception as e:
@@ -180,6 +181,18 @@ def run_collection_and_processing(args):
         retry_empty_analysis(db, pipeline, args.retry_limit)
         return
 
+    # If an issue ID is provided, reprocess that specific issue
+    if args.issue_id:
+        logger.info(f"Reprocessing issue with ID: {args.issue_id}")
+        issue = db.get_issues(args.issue_id)
+        if not issue:
+            logger.error(f"No issue found with ID: {args.issue_id}")
+            return
+        db.mark_item_in_progress(args.issue_id)
+        pipeline.process_item(args.issue_id, skip_cache=args.skip_cache)
+        logger.info(f"Successfully reprocessed issue: {args.issue_id}")
+        return
+
     # Determine the collection timestamp
     if args.since:
         since = datetime.strptime(args.since, "%Y-%m-%d")
@@ -204,14 +217,11 @@ def run_collection_and_processing(args):
         logger.info(f"Found {len(items_to_reprocess)} items to reprocess")
         for item in items_to_reprocess:
             db.queue_for_processing(item['id'], item['source'])
-            # Reset the processing status
             db.reset_processing_status(item['id'])
 
     process_collected_data(db, pipeline, args.batch_size)
 
 def main():
-    setup_logging()
-
     parser = argparse.ArgumentParser(description="Collect and process Klipper configuration data")
     parser.add_argument("--source", choices=["github", "discourse"], default="github",
                        help="Data source to collect from")
@@ -232,8 +242,17 @@ def main():
     parser.add_argument("--retry-limit", type=int, default=100,
                        help="Maximum number of items to retry")
     parser.add_argument("--force-reprocess", action="store_true",
-                    help="Force reprocess all items, resetting their processing status")
+                       help="Force reprocess all items, resetting their processing status")
+    parser.add_argument("--issue-id", type=str, help="The ID of the Klipper issue to reprocess.")
+    parser.add_argument("--skip-cache", action="store_true",
+                       help="Skip using cached LLM responses when processing.")
+    parser.add_argument('--logging-level', type=str, default='WARNING',
+                        help='Set the logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)')
     args = parser.parse_args()
+
+    logging_level = getattr(logging, args.logging_level.upper(), logging.WARNING)
+
+    setup_logging(logging_level)
 
     run_collection_and_processing(args)
 
