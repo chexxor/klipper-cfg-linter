@@ -5,133 +5,10 @@ import glob
 import os
 import re
 from pathlib import Path
+import logging
 
 from klipperlint.klipper_config_parser import ConfigFile
 from klipperlint.types import LintError, LintRule, RuleCategory, RuleDocumentation
-
-@dataclass
-class RuleCondition:
-    type: str
-    applies_to: str
-    error_message: str
-    severity: str
-    # Additional fields based on condition type
-    pattern: Optional[str] = None
-    value_pattern: Optional[str] = None
-    options: Optional[List[str]] = None
-    ranges: Optional[Dict[str, List[float]]] = None
-
-class YamlRule:
-    def __init__(self, yaml_data: Dict[str, Any]):
-        self.name = yaml_data['name']
-        self.category = RuleCategory[yaml_data['category'].upper()]
-        self.description = yaml_data['description']
-        self.examples = yaml_data.get('examples', {})
-        self.conditions = [
-            RuleCondition(**condition)
-            for condition in yaml_data['conditions']
-        ]
-
-    def create_check_function(self) -> Callable[[ConfigFile], List[LintError]]:
-        def check_config(config: ConfigFile) -> List[LintError]:
-            errors = []
-            for condition in self.conditions:
-                if condition.type == "regex_match":
-                    errors.extend(self._check_regex(config, condition))
-                elif condition.type == "numeric_range":
-                    errors.extend(self._check_range(config, condition))
-                elif condition.type == "required_sections":
-                    for section in condition['sections']:
-                        if section not in config.sections:
-                            errors.append(LintError(
-                                condition['error_message'].format(section=section),
-                                section,
-                                severity=condition['severity']
-                            ))
-                elif condition.type == "section_name_pattern":
-                    pattern = re.compile(condition.pattern)
-                    for section_name in config.sections:
-                        if not pattern.match(section_name):
-                            errors.append(LintError(
-                                condition.error_message.format(section=section_name),
-                                section_name,
-                                severity=condition.severity
-                            ))
-                elif condition.type == "section_dependency":
-                    if condition['if_section'] in config.sections:
-                        if condition['requires_section'] not in config.sections:
-                            errors.append(LintError(
-                                condition['error_message'],
-                                condition['if_section'],
-                                severity=condition['severity']
-                            ))
-                elif condition.type == "option_consistency":
-                    sections = [s for s in config.sections
-                              if re.match(condition.pattern, s)]
-                    if sections:
-                        first = config.sections[sections[0]]
-                        for option in condition.options:
-                            first_value = first.options.get(option)
-                            for section in sections[1:]:
-                                current = config.sections[section]
-                                if current.options.get(option) != first_value:
-                                    errors.append(LintError(
-                                        condition.error_message.format(
-                                            option=option,
-                                            section=section
-                                        ),
-                                        section,
-                                        option,
-                                        severity=condition.severity
-                                    ))
-            return errors
-        return check_config
-
-    def _check_regex(self, config: ConfigFile, condition: RuleCondition) -> List[LintError]:
-        errors = []
-        option_pattern = re.compile(condition.pattern)
-        value_pattern = re.compile(condition.value_pattern)
-
-        for section_name, section in config.sections.items():
-            for option, value in section.options.items():
-                if option_pattern.match(option):
-                    if not value_pattern.match(value):
-                        errors.append(LintError(
-                            condition.error_message.format(value=value),
-                            section_name,
-                            option,
-                            condition.severity
-                        ))
-        return errors
-
-    def _check_range(self, config: ConfigFile, condition: RuleCondition) -> List[LintError]:
-        errors = []
-        for section_name, section in config.sections.items():
-            for option, value in section.options.items():
-                if option in condition.options:
-                    try:
-                        val = float(value)
-                        min_val, max_val = condition.ranges[option]
-                        if not min_val <= val <= max_val:
-                            errors.append(LintError(
-                                condition.error_message.format(
-                                    option=option,
-                                    value=val,
-                                    min=min_val,
-                                    max=max_val
-                                ),
-                                section_name,
-                                option,
-                                condition.severity
-                            ))
-                    except ValueError:
-                        errors.append(LintError(
-                            f"Invalid numeric value for {option}: {value}",
-                            section_name,
-                            option,
-                            condition.severity
-                        ))
-        return errors
 
 def create_check_function(rule_data: Dict[str, Any]) -> Callable[[ConfigFile], List[LintError]]:
     """Creates a check function based on the rule type"""
@@ -208,6 +85,33 @@ def create_check_function(rule_data: Dict[str, Any]) -> Callable[[ConfigFile], L
                                     option,
                                     condition['severity']
                                 ))
+            elif condition_type == "numeric_range":
+                # For numeric range validation
+                for section_name, section in config.sections.items():
+                    for option, value in section.options.items():
+                        if option in condition['options']:
+                            try:
+                                val = float(value)
+                                min_val, max_val = condition['ranges'][option]
+                                if not (min_val <= val <= max_val):
+                                    errors.append(LintError(
+                                        condition['error_message'].format(
+                                            option=option,
+                                            value=val,
+                                            min=min_val,
+                                            max=max_val
+                                        ),
+                                        section_name,
+                                        option,
+                                        condition['severity']
+                                    ))
+                            except ValueError:
+                                errors.append(LintError(
+                                    f"Invalid numeric value for {option}: {value}",
+                                    section_name,
+                                    option,
+                                    condition['severity']
+                                ))
             else:
                 raise ValueError(f"Unknown condition type: {condition_type}")
 
@@ -229,11 +133,21 @@ def validate_rule_data(rule_data: Dict[str, Any]) -> None:
         raise ValueError(f"Invalid category: {rule_data['category']}")
 
 def load_rules_from_directory(directory: str) -> List[LintRule]:
-    """Loads all YAML rules from a directory"""
+    logger = logging.getLogger(__name__)
+    logger.info("Loading rules from: %s", directory)
+
+    if not Path(directory).exists():
+        raise ValueError(f"Rules directory does not exist: {directory}")
+
+    # Add these lines
+    logger.debug("Full rules path: %s", Path(directory).resolve())
+    logger.debug("Files in directory: %s", list(Path(directory).glob("*.yaml")))
+
     rules = []
     rule_dir = Path(directory)
 
     for yaml_file in rule_dir.glob("*.yaml"):
+        logger.debug("Loading rule from: %s", yaml_file.name)
         with open(yaml_file) as f:
             rule_data = yaml.safe_load(f)
 
@@ -255,4 +169,5 @@ def load_rules_from_directory(directory: str) -> List[LintRule]:
             RuleCategory[rule_data['category'].upper()]
         ))
 
+    logger.info("Loaded %d rules", len(rules))
     return rules

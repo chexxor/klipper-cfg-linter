@@ -15,6 +15,6 @@ conditions:
   - type: "regex_match"
     applies_to: "option"
     pattern: ".*_pin$"
-    value_pattern: "^[!-]?P[A-Z][0-9]+$"
+    value_pattern: "^[\\^]?[!-]?P[A-Z][0-9]+$"
     error_message: "Invalid pin format: {value}"
     severity: "error"

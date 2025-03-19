@@ -9,6 +9,8 @@ from typing import Dict, List, Tuple, Any, Optional, Set, Mapping
 from dataclasses import dataclass
 from types import MappingProxyType
 import os, glob
+import json
+import logging
 
 class ConfigError(Exception):
     """Base class for config parsing errors"""
@@ -53,6 +55,7 @@ def read_file_content(filename: str, mock_files: Dict[str, str] = None) -> str:
         filename: Path to the file to read
         mock_files: Optional dictionary of mock files for testing {filename: content}
     """
+    logging.debug("Reading file: %s", filename)
     if mock_files is not None and filename in mock_files:
         return mock_files[filename].replace('\r\n', '\n')
 
@@ -137,6 +140,9 @@ def parse_config_section(lines: List[str]) -> ConfigSection:
 def parse_config_file(content: str, filename: str, visited: Set[str] = None,
                      mock_files: Dict[str, str] = None) -> ConfigFile:
     """Parses a config file into a ConfigFile structure"""
+    logger = logging.getLogger(__name__)
+    logger.debug("Parsing config file: %s", filename)
+
     if visited is None:
         visited = set()
 
@@ -160,6 +166,7 @@ def parse_config_file(content: str, filename: str, visited: Set[str] = None,
         include_path = parse_include_directive(content)
 
         if include_path:
+            logger.debug("Found include directive: %s", include_path)
             # Process current section before handling include
             process_current_section()
 
@@ -180,6 +187,8 @@ def parse_config_file(content: str, filename: str, visited: Set[str] = None,
     # Process final section
     process_current_section()
 
+    logger.debug("Parsed %d sections and %d includes from %s",
+                len(sections), len(includes), filename)
     visited.remove(filename)
     return ConfigFile(sections, includes)
 
@@ -227,3 +236,12 @@ def generate_autosave_content(config: ConfigFile) -> str:
             lines.append(f"#*# {key} = {value}")
 
     return "\n".join(lines)
+
+def export_to_json(config_file: ConfigFile, output_file: str) -> None:
+    """Exports the parsed configuration to a JSON file."""
+    json_data = {
+        "sections": {name: section.options for name, section in config_file.sections.items()},
+        "includes": config_file.includes
+    }
+    with open(output_file, 'w') as f:
+        json.dump(json_data, f, indent=4)

@@ -74,6 +74,16 @@ Each message includes:
 # Basic usage
 python -m klipperlint your_printer.cfg
 
+# Basic usage with example config
+python3 -m klipperlint tests/test_configs/example-cartesian.cfg
+# Output:
+# INFO: Loading configuration file: tests/test_configs/example-cartesian.cfg
+# INFO: Loading rules from: /klipper-cfg-linter/klipperlint/rules
+# INFO: Loaded 6 rules
+# INFO: Starting lint analysis with 7 rules
+# INFO: Completed lint analysis. Found 1 total issues
+# LintError(message='Extruder extruder requires at least one cooling fan', section='extruder', option=None, severity='error', line_number=None, fix=None)
+
 # Enable verbose output
 python -m klipperlint --verbose your_printer.cfg
 

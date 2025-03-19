@@ -1,10 +1,12 @@
 from dataclasses import dataclass, field
 from typing import List, Dict, Tuple
 from pathlib import Path
+import logging
 
 from klipperlint.klipper_config_parser import ConfigFile
 from klipperlint.types import LintError, LintRule, RuleCategory, RuleDocumentation
 from klipperlint.rules.heater_safety import heater_safety_rule
+from .config import LinterConfig
 
 class KlipperLinter:
     def __init__(self, warning_as_error: bool = False):
@@ -15,9 +17,14 @@ class KlipperLinter:
         self.rules.append(rule)
 
     def lint(self, config: ConfigFile) -> List[LintError]:
+        logger = logging.getLogger(__name__)
+        logger.info("Starting lint analysis with %d rules", len(self.rules))
+
         errors = []
         for rule in self.rules:
+            logger.debug("Checking rule: %s (%s)", rule.name, rule.category.name)
             rule_errors = rule.check(config)
+            logger.debug("Found %d issues for rule %s", len(rule_errors), rule.name)
             if self.warning_as_error:
                 # Convert warnings to errors
                 rule_errors = [
@@ -32,29 +39,28 @@ class KlipperLinter:
                     for e in rule_errors
                 ]
             errors.extend(rule_errors)
+
+        logger.info("Completed lint analysis. Found %d total issues", len(errors))
         return errors
 
-@dataclass
-class LinterConfig:
-    rules_directory: str = str(Path(__file__).parent.parent / "rules")
-    ignore_rules: List[str] = field(default_factory=list)
-    warning_as_error: bool = False
-    custom_ranges: Dict[str, Tuple[float, float]] = field(default_factory=dict)
-
 def create_configured_linter(config: LinterConfig) -> KlipperLinter:
-    linter = KlipperLinter(warning_as_error=config.warning_as_error)  # Pass the config option
+    logger = logging.getLogger(__name__)
+    logger.debug("Using rules directory: %s", config.rules_directory)
+    logger.debug("Absolute rules path: %s", Path(config.rules_directory).resolve())
 
-    # Load rules from directory
-    if config.rules_directory:
-        from klipperlint.rule_loader import load_rules_from_directory
-        all_rules = load_rules_from_directory(config.rules_directory)
+    linter = KlipperLinter(warning_as_error=config.warning_as_error)
 
-        # Only add rules that aren't in ignore_rules
-        for rule in all_rules:
+    # Load rules from built-in directory
+    try:
+        from .rule_loader import load_rules_from_directory
+        builtin_rules = load_rules_from_directory(config.rules_directory)
+        for rule in builtin_rules:
             if rule.name not in config.ignore_rules:
                 linter.add_rule(rule)
+    except Exception as e:
+        logging.error("Failed to load built-in rules: %s", str(e))
 
-    # Add complex rules that are better suited for Python
+    # Add Python-based rules
     linter.add_rule(heater_safety_rule)
 
     return linter

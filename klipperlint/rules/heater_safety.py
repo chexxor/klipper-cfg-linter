@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from typing import Dict, List, Optional
 import re
+import logging
 
 from klipperlint.klipper_config_parser import ConfigFile, ConfigSection
 from klipperlint.types import LintError, LintRule, RuleCategory, RuleDocumentation
@@ -19,12 +20,20 @@ min_temp: 0
 max_temp: 250
 min_extrude_temp: 170
 max_power: 1.0
+
+[heater_bed]
+heater_pin: PB0
+sensor_type: NTC 100K MGB18-104F39050L32
+control: watermark
+max_temp: 120
+# max_delta: 2.0  # Optional (default)
+min_temp: 0
 """
 
 # Constants for validation
-HEATER_SECTIONS = [r"^extruder\d*$", r"^heater_bed$"]
+HEATER_SECTIONS = [r"^extruder", r"^heater_bed$"]
 REQUIRED_OPTIONS = ["heater_pin", "sensor_type", "sensor_pin", "min_temp", "max_temp"]
-PID_OPTIONS = ["pid_Kp", "pid_Ki", "pid_Kd"]
+PID_OPTIONS = ["pid_kp", "pid_ki", "pid_kd"]
 
 SENSOR_TEMP_LIMITS = {
     "EPCOS 100K B57560G104F": 280,
@@ -48,9 +57,19 @@ def check_heater_safety(config: ConfigFile) -> List[LintError]:
         # Check required options
         errors.extend(check_required_options(section_name, section))
 
-        # Check PID configuration if enabled
-        if section.options.get("control") == "pid":
+        # Check control method
+        control = section.options.get("control", "").lower()
+        if control == "pid":
             errors.extend(check_pid_config(section_name, section))
+        elif control == "watermark":
+            errors.extend(check_watermark_config(section_name, section))
+        else:  # Add default case
+            errors.append(LintError(
+                f"Missing required 'control' option in {section_name}",
+                section_name,
+                "control",
+                "error"
+            ))
 
         # Check temperature limits
         errors.extend(check_temperature_limits(section_name, section))
@@ -82,13 +101,17 @@ def check_required_options(section_name: str, section: ConfigSection) -> List[Li
 
 def check_pid_config(section_name: str, section: ConfigSection) -> List[LintError]:
     """Validates PID control settings."""
+    logger = logging.getLogger(__name__)
+    logger.debug("Checking PID config for section: %s", section_name)
+    logger.debug("Section options: %s", section.options)
     errors = []
     for pid_param in PID_OPTIONS:
-        if pid_param not in section.options:
+        # Check lowercase version
+        if pid_param not in {k.lower() for k in section.options}:
             errors.append(LintError(
-                f"PID control requires {pid_param}",
+                f"PID control requires {pid_param.upper()}",  # Show uppercase to user
                 section_name,
-                pid_param,
+                pid_param.upper(),  # Show uppercase in error
                 "error"
             ))
     return errors
@@ -166,9 +189,10 @@ def check_pwm_frequency(mcu_section: ConfigSection) -> List[LintError]:
     errors = []
     try:
         freq = float(mcu_section.options.get("pwm_frequency", "0"))
-        if freq < 100:  # Minimum safe PWM frequency for heaters
+        # Allow 0 (no PWM) but require >=100 if set
+        if freq > 0 and freq < 100:
             errors.append(LintError(
-                f"PWM frequency must be at least 100Hz for heater control, got {freq}Hz",
+                f"PWM frequency must be at least 100Hz if used, got {freq}Hz",
                 "mcu",
                 "pwm_frequency",
                 "error"
@@ -180,6 +204,42 @@ def check_pwm_frequency(mcu_section: ConfigSection) -> List[LintError]:
             "pwm_frequency",
             "error"
         ))
+    return errors
+
+def check_watermark_config(section_name: str, section: ConfigSection) -> List[LintError]:
+    """Validates watermark control configuration."""
+    errors = []
+    required_options = ["max_temp"]  # max_delta is optional with default
+
+    # Check required options
+    for opt in required_options:
+        if opt not in section.options:
+            errors.append(LintError(
+                f"Watermark control requires '{opt}' option",
+                section_name,
+                opt,
+                "error"
+            ))
+
+    # Validate max_delta if present, else use default
+    max_delta = section.options.get("max_delta", "2.0")  # Default to 2.0
+    try:
+        max_delta_val = float(max_delta)
+        if max_delta_val <= 0:
+            errors.append(LintError(
+                f"max_delta must be positive, got {max_delta_val}",
+                section_name,
+                "max_delta",
+                "error"
+            ))
+    except ValueError:
+        errors.append(LintError(
+            f"Invalid max_delta value: {max_delta}",
+            section_name,
+            "max_delta",
+            "error"
+        ))
+
     return errors
 
 # Create the rule

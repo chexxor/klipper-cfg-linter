@@ -13,6 +13,9 @@ class LinterConfig:
         self.verbose: bool = False
         self.strict: bool = False
         self.ignore: List[str] = []
+        self.rules_directory = str(Path(__file__).parent / "rules")
+        self.ignore_rules: List[str] = []
+        self.warning_as_error: bool = False
 
     @classmethod
     def from_file(cls, config_file: Path) -> 'LinterConfig':
