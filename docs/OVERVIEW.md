@@ -75,7 +75,7 @@ Each message includes:
 python -m klipperlint your_printer.cfg
 
 # Basic usage with example config
-python3 -m klipperlint tests/test_configs/example-cartesian.cfg
+python -m klipperlint tests/test_configs/example-cartesian.cfg
 # Output:
 # INFO: Loading configuration file: tests/test_configs/example-cartesian.cfg
 # INFO: Loading rules from: /klipper-cfg-linter/klipperlint/rules
@@ -92,6 +92,18 @@ python -m klipperlint --strict your_printer.cfg
 
 # Use custom config file
 python -m klipperlint --config my_config.yaml your_printer.cfg
+
+# Parses the config file and exports it to a JSON-formatted file
+python -m klipperlint tests/test_configs/include.cfg --export-config-to-json-file ./test-include-cfg.json
+# test-include-cfg-json:
+# {
+#     "printer": {
+#         "max_velocity": "300"
+#     },
+#     "extruder": {
+#         "heater_pin": "PA1"
+#     }
+# }
 
 # Collects GitHub issues since specified date,
 #   then asks LLM if they are related to config-related errors,

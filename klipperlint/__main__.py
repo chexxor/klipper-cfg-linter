@@ -40,6 +40,15 @@ def main(config_file: Path, verbose: bool, strict: bool, config: Optional[Path],
 
         linter = create_configured_linter(linter_config)
         parsed_config = parse_config_file(read_file_content(config_file), str(config_file))
+
+        # Export to JSON file, if specified
+        if export_config_to_json_file:
+            logger.debug("Parsed sections: %s", list(parsed_config.sections.keys()))
+            logger.debug("Parsed includes: %s", parsed_config.includes)
+            export_to_json(parsed_config, export_config_to_json_file)
+            click.echo(f"Exported configuration to {export_config_to_json_file}")
+            return
+
         issues = linter.lint(parsed_config)
 
         if issues:
@@ -48,13 +57,6 @@ def main(config_file: Path, verbose: bool, strict: bool, config: Optional[Path],
             sys.exit(1)
         else:
             click.echo("No issues found!")
-
-        # Export to JSON file, if specified
-        if export_config_to_json_file:
-            logger.debug("Parsed sections: %s", list(parsed_config.sections.keys()))
-            logger.debug("Parsed includes: %s", parsed_config.includes)
-            export_to_json(parsed_config, export_config_to_json_file)
-            click.echo(f"Exported configuration to {export_config_to_json_file}")
 
         sys.exit(0)
 

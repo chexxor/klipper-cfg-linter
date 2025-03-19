@@ -240,8 +240,8 @@ def generate_autosave_content(config: ConfigFile) -> str:
 def export_to_json(config_file: ConfigFile, output_file: str) -> None:
     """Exports the parsed configuration to a JSON file."""
     json_data = {
-        "sections": {name: section.options for name, section in config_file.sections.items()},
-        "includes": config_file.includes
+        name: dict(section.options)
+        for name, section in config_file.sections.items()
     }
     with open(output_file, 'w') as f:
         json.dump(json_data, f, indent=4)
