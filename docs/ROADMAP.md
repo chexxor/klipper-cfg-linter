@@ -20,6 +20,7 @@
 
 ### Phase 3: Rule System Development
 - [ ] Design and implement flexible rule format
+- [ ] Support OPA Rego rules
 - [ ] Create rule documentation system
 - [ ] Develop rule testing framework
 - [ ] Implement rule severity levels and categories:
